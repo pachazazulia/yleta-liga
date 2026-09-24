@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import confetti from 'canvas-confetti';
 import {
   FaThumbsUp,
   FaThumbsDown,
@@ -44,6 +43,7 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('');
+  const [condomBurst, setCondomBurst] = useState(0);
   const [versusPairIds, setVersusPairIds] = useState(() => {
     const list = loadSavedPeople();
     if (list.length >= 2) return [list[0].id, list[1].id];
@@ -84,6 +84,12 @@ export default function App() {
     }
   }, [people]);
 
+  useEffect(() => {
+    if (!condomBurst) return undefined;
+    const timeout = window.setTimeout(() => setCondomBurst(0), 1200);
+    return () => window.clearTimeout(timeout);
+  }, [condomBurst]);
+
   // Pick 2 random people for Head-to-Head mode
   const pickVersusPair = (pool = people) => {
     if (pool.length < 2) {
@@ -99,8 +105,6 @@ export default function App() {
   };
 
   const handleVote = async (id, delta) => {
-    if (delta > 0) confetti({ particleCount: 30, spread: 60, origin: { y: 0.8 } });
-
     // Optimistic UI update
     setPeople((prev) =>
       prev.map((person) => {
@@ -124,6 +128,7 @@ export default function App() {
 
   const handleVersusSelect = (winnerId) => {
     handleVote(winnerId, 1);
+    setCondomBurst((burst) => burst + 1);
     pickVersusPair();
   };
 
@@ -202,6 +207,22 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {condomBurst > 0 && (
+        <div className="condom-burst" aria-hidden="true">
+          {Array.from({ length: 18 }, (_, index) => (
+            <span
+              key={`${condomBurst}-${index}`}
+              className="condom-particle"
+              style={{
+                '--x': `${(index - 8.5) * 28}px`,
+                '--y': `${-180 - (index % 4) * 30}px`,
+                '--rotate': `${(index - 8.5) * 16}deg`,
+                '--delay': `${(index % 5) * 0.03}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
       {/* Header */}
       <header className="header">
         <div>
