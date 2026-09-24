@@ -262,7 +262,7 @@ export default function App() {
             className={`btn ${activeTab === 'leaderboard' ? 'btn-primary' : ''}`}
             onClick={() => setActiveTab('leaderboard')}
           >
-            <FaListUl size={18} /> ყლეები
+            <FaListUl size={18} /> დაყლეებულები
           </button>
           <button
             className={`btn ${activeTab === 'versus' ? 'btn-primary' : ''}`}
