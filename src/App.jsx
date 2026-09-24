@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  FaThumbsUp,
-  FaThumbsDown,
   FaPlus,
+  FaMinus,
   FaCrosshairs,
   FaListUl,
   FaSearch,
@@ -353,12 +352,12 @@ export default function App() {
                 </div>
 
                 <div className="vote-controls">
-                  <button className="btn-vote upvote" onClick={() => handleVote(person.id, 1)} title="Vote Up">
-                    <FaThumbsUp size={16} />
+                  <button className="btn-vote upvote" onClick={() => handleVote(person.id, 1)} title="Add vote">
+                    <FaPlus size={16} />
                   </button>
                   <span className="score">{person.votes || 0}</span>
-                  <button className="btn-vote downvote" onClick={() => handleVote(person.id, -1)} title="Vote Down">
-                    <FaThumbsDown size={16} />
+                  <button className="btn-vote downvote" onClick={() => handleVote(person.id, -1)} title="Remove vote">
+                    <FaMinus size={16} />
                   </button>
                   <button
                     className="btn-vote delete"
