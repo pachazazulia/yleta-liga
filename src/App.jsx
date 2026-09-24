@@ -22,6 +22,8 @@ import customIcon from './assets/trophy.png';
 import './App.css';
 
 const DUMMY_NAMES = new Set(['Ada Lovelace', 'Alan Turing', 'Grace Hopper', 'Nikola Tesla', 'Marie Curie']);
+const MAX_VOTES = 100;
+const MIN_VOTES = -100;
 
 const loadSavedPeople = () => {
   try {
@@ -104,11 +106,17 @@ export default function App() {
   };
 
   const handleVote = async (id, delta) => {
+    const person = people.find((candidate) => String(candidate.id) === String(id));
+    const currentVotes = person?.votes || 0;
+    const nextVotes = Math.min(MAX_VOTES, Math.max(MIN_VOTES, currentVotes + delta));
+    const appliedDelta = nextVotes - currentVotes;
+    if (appliedDelta === 0) return;
+
     // Optimistic UI update
     setPeople((prev) =>
       prev.map((person) => {
         if (String(person.id) === String(id)) {
-          return { ...person, votes: (person.votes || 0) + delta };
+          return { ...person, votes: (person.votes || 0) + appliedDelta };
         }
         return person;
       })
@@ -117,7 +125,7 @@ export default function App() {
     if (isFirebaseConfigured && db) {
       try {
         await updateDoc(doc(db, 'people', String(id)), {
-          votes: increment(delta),
+          votes: increment(appliedDelta),
         });
       } catch (err) {
         console.error('Firebase vote update failed:', err);
@@ -126,6 +134,8 @@ export default function App() {
   };
 
   const handleVersusSelect = (winnerId) => {
+    const person = people.find((candidate) => String(candidate.id) === String(winnerId));
+    if ((person?.votes || 0) >= MAX_VOTES) return;
     handleVote(winnerId, 1);
     setCondomBurst((burst) => burst + 1);
     pickVersusPair();
