@@ -262,7 +262,7 @@ export default function App() {
                   : 'Running locally on this device. Add Firebase keys to .env to sync between all users.'
               }
             >
-              <span style={{ fontSize: '0.6rem' }}>●</span> {isFirebaseConfigured ? 'Cloud Sync' : 'Local Mode'}
+             
             </span>
           </div>
         </div>
