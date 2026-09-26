@@ -248,6 +248,7 @@ body {
 
 .btn-vote.upvote:hover { color: var(--green); border-color: var(--green); }
 .btn-vote.downvote:hover { color: var(--red); border-color: var(--red); }
+.btn-vote.edit:hover { color: var(--accent-blue); border-color: var(--accent-blue); }
 .btn-vote.delete {
   margin-left: 0.25rem;
   color: var(--text-muted);

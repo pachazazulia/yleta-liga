@@ -7,6 +7,7 @@ import {
   FaSearch,
   FaRedo,
   FaTrash,
+  FaEdit,
 } from 'react-icons/fa';
 import {
   collection,
@@ -207,6 +208,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('leaderboard'); // 'leaderboard' | 'versus'
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPersonId, setEditingPersonId] = useState(null);
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('');
   const [condomBurst, setCondomBurst] = useState(0);
@@ -352,6 +354,54 @@ export default function App() {
     setNewName('');
     setNewRole('');
     setIsModalOpen(false);
+  };
+
+  const handleEditPerson = (person) => {
+    setEditingPersonId(person.id);
+    setNewName(person.name);
+    setNewRole(person.role || '');
+    setIsModalOpen(true);
+  };
+
+  const handleUpdatePerson = async (e) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+
+    const person = people.find((candidate) => String(candidate.id) === String(editingPersonId));
+    if (!person) return;
+
+    const updates = {
+      name: newName.trim(),
+      role: newRole.trim(),
+    };
+    if (updates.name === LOCKED_SCORE_NAME) updates.votes = LOCKED_SCORE;
+
+    setPeople((prev) => prev.map((candidate) => (
+      String(candidate.id) === String(editingPersonId)
+        ? { ...candidate, ...updates }
+        : candidate
+    )));
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await updateDoc(doc(db, 'people', String(editingPersonId)), updates);
+      } catch (err) {
+        console.error('Firebase edit nominee error:', err);
+        alert('Firebase error: ' + err.message);
+      }
+    }
+
+    setNewName('');
+    setNewRole('');
+    setEditingPersonId(null);
+    setIsModalOpen(false);
+  };
+
+  const closePersonForm = () => {
+    setIsModalOpen(false);
+    setEditingPersonId(null);
+    setNewName('');
+    setNewRole('');
   };
 
   const handlePictureUpload = async (id, file) => {
@@ -589,6 +639,14 @@ export default function App() {
                   )}
                   <span className="score">{hasLockedScore(person) ? LOCKED_SCORE : person.votes || 0}</span>
                   <button
+                    className="btn-vote edit"
+                    onClick={() => handleEditPerson(person)}
+                    title={`${person.name}-ის რედაქტირება`}
+                    aria-label={`${person.name}-ის რედაქტირება`}
+                  >
+                    <FaEdit size={14} />
+                  </button>
+                  <button
                     className="btn-vote delete"
                     onClick={() => handleDeletePerson(person.id, person.name)}
                     title={`Delete ${person.name}`}
@@ -683,10 +741,10 @@ export default function App() {
 
       {/* Add Nominee Modal */}
       {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+        <div className="modal-overlay" onClick={closePersonForm}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0 }}>დაამატე</h2>
-            <form onSubmit={handleAddPerson}>
+            <h2 style={{ marginTop: 0 }}>{editingPersonId ? 'რედაქტირება' : 'დაამატე'}</h2>
+            <form onSubmit={editingPersonId ? handleUpdatePerson : handleAddPerson}>
               <div className="form-group">
                 <label>სახელი</label>
                 <input
@@ -709,7 +767,7 @@ export default function App() {
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
-                <button type="button" className="btn" onClick={() => setIsModalOpen(false)}>
+                <button type="button" className="btn" onClick={closePersonForm}>
                   დაზადვნა
                 </button>
                 <button type="submit" className="btn btn-primary">
