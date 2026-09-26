@@ -24,6 +24,85 @@ import './App.css';
 const DUMMY_NAMES = new Set(['Ada Lovelace', 'Alan Turing', 'Grace Hopper', 'Nikola Tesla', 'Marie Curie']);
 const MAX_VOTES = 100;
 const MIN_VOTES = -100;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
+const resizeImage = (file) =>
+  new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('აირჩიე სურათის ფაილი'));
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      reject(new Error('სურათი 10 მბ-ზე პატარა უნდა იყოს'));
+      return;
+    }
+
+    const imageUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, 512 / Math.max(image.width, image.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(imageUrl);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error('სურათის წაკითხვა ვერ მოხერხდა'));
+    };
+    image.src = imageUrl;
+  });
+
+function PersonPicture({ person, className, onUpload }) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState('');
+  const hasPicture = person.avatar?.startsWith('data:image/');
+
+  const handleChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsUploading(true);
+    setError('');
+    try {
+      await onUpload(person.id, file);
+    } catch (uploadError) {
+      setError(uploadError.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <label
+      className={`picture-uploader ${className}`}
+      title={error || (hasPicture ? 'სურათის შეცვლა' : 'სურათის დამატება')}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <input
+        className="picture-file-input"
+        type="file"
+        accept="image/*"
+        aria-label={`${person.name}-ისთვის სურათის დამატება`}
+        disabled={isUploading}
+        onChange={handleChange}
+      />
+      {hasPicture ? (
+        <img className="picture-image" src={person.avatar} alt={person.name} />
+      ) : (
+        <span className="picture-placeholder">
+          <FaPlus />
+          <span>სურათი</span>
+        </span>
+      )}
+      {hasPicture && <span className="picture-add-badge"><FaPlus size={11} /></span>}
+      {isUploading && <span className="picture-uploading">...</span>}
+    </label>
+  );
+}
 
 const loadSavedPeople = () => {
   try {
@@ -133,10 +212,26 @@ export default function App() {
     }
   };
 
-  const handleVersusSelect = (winnerId) => {
+  const handleVersusSelect = async (winnerId) => {
     const person = people.find((candidate) => String(candidate.id) === String(winnerId));
-    if ((person?.votes || 0) >= MAX_VOTES) return;
-    handleVote(winnerId, 1);
+    if (!person) return;
+
+    setPeople((prev) => prev.map((candidate) => (
+      String(candidate.id) === String(winnerId)
+        ? { ...candidate, versusPoints: (candidate.versusPoints || 0) + 1 }
+        : candidate
+    )));
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await updateDoc(doc(db, 'people', String(winnerId)), {
+          versusPoints: increment(1),
+        });
+      } catch (err) {
+        console.error('Firebase versus point update failed:', err);
+      }
+    }
+
     setCondomBurst((burst) => burst + 1);
     pickVersusPair();
   };
@@ -149,7 +244,6 @@ export default function App() {
       name: newName.trim(),
       role: newRole.trim() || '',
       votes: 0,
-      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(newName.trim())}`,
       createdAt: Date.now(),
     };
 
@@ -168,6 +262,17 @@ export default function App() {
     setNewName('');
     setNewRole('');
     setIsModalOpen(false);
+  };
+
+  const handlePictureUpload = async (id, file) => {
+    const avatar = await resizeImage(file);
+    setPeople((prev) => prev.map((person) => (
+      String(person.id) === String(id) ? { ...person, avatar } : person
+    )));
+
+    if (isFirebaseConfigured && db) {
+      await updateDoc(doc(db, 'people', String(id)), { avatar });
+    }
   };
 
   const handleDeletePerson = async (id, name) => {
@@ -210,6 +315,9 @@ export default function App() {
   );
 
   const top3 = sortedPeople.slice(0, 3);
+  const sortedVersusPeople = [...people].sort(
+    (a, b) => (b.versusPoints || 0) - (a.versusPoints || 0)
+  );
   const versusPair = versusPairIds
     .map((id) => people.find((p) => String(p.id) === String(id)))
     .filter(Boolean);
@@ -244,26 +352,7 @@ export default function App() {
             <span className="header-title-text">ყლეთა ლიგა</span>
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.3rem' }}>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                padding: '2px 8px',
-                borderRadius: '999px',
-                backgroundColor: isFirebaseConfigured ? 'rgba(34, 197, 94, 0.15)' : 'rgba(148, 163, 184, 0.15)',
-                color: isFirebaseConfigured ? 'var(--green)' : 'var(--text-muted)',
-                border: `1px solid ${isFirebaseConfigured ? 'var(--green)' : 'var(--border-color)'}`,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-              title={
-                isFirebaseConfigured
-                  ? 'Connected to Firebase Cloud Database (multi-user sync)'
-                  : 'Running locally on this device. Add Firebase keys to .env to sync between all users.'
-              }
-            >
-             
-            </span>
+           
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -335,7 +424,7 @@ export default function App() {
                       `#${index + 1}`
                     )}
                   </span>
-                  <img className="avatar-large" src={person.avatar} alt={person.name} />
+                  <PersonPicture className="avatar-large" person={person} onUpload={handlePictureUpload} />
                   <h3 style={{ margin: '0.4rem 0 0.2rem' }}>{person.name}</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
                     {person.role}
@@ -354,7 +443,7 @@ export default function App() {
               <div key={person.id} className="list-item">
                 <div className="list-item-left">
                   <span className="rank-num">#{index + 1}</span>
-                  <img className="avatar-small" src={person.avatar} alt={person.name} />
+                  <PersonPicture className="avatar-small" person={person} onUpload={handlePictureUpload} />
                   <div className="person-info">
                     <h3>{person.name}</h3>
                     <p>{person.role}</p>
@@ -405,22 +494,22 @@ export default function App() {
           {versusPair.length === 2 ? (
             <div className="versus-container">
               <div className="versus-card" onClick={() => handleVersusSelect(versusPair[0].id)}>
-                <img className="avatar-large" src={versusPair[0].avatar} alt={versusPair[0].name} />
+                <PersonPicture className="avatar-large" person={versusPair[0]} onUpload={handlePictureUpload} />
                 <h3>{versusPair[0].name}</h3>
                 <p style={{ color: 'var(--text-muted)' }}>{versusPair[0].role}</p>
                 <div style={{ marginTop: '1rem', fontWeight: 'bold' }}>
-                  {versusPair[0].votes || 0} ყლეციბელი
+                  {versusPair[0].versusPoints || 0} ყლეობაიტი
                 </div>
               </div>
 
               <div className="vs-badge">VS</div>
 
               <div className="versus-card" onClick={() => handleVersusSelect(versusPair[1].id)}>
-                <img className="avatar-large" src={versusPair[1].avatar} alt={versusPair[1].name} />
+                <PersonPicture className="avatar-large" person={versusPair[1]} onUpload={handlePictureUpload} />
                 <h3>{versusPair[1].name}</h3>
                 <p style={{ color: 'var(--text-muted)' }}>{versusPair[1].role}</p>
                 <div style={{ marginTop: '1rem', fontWeight: 'bold' }}>
-                  {versusPair[1].votes || 0} ყლეციბელი
+                  {versusPair[1].versusPoints || 0} ყლეობაიტი
                 </div>
               </div>
             </div>
@@ -465,7 +554,6 @@ export default function App() {
                   placeholder="აღწერა"
                 />
               </div>
-              
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
                 <button type="button" className="btn" onClick={() => setIsModalOpen(false)}>
                   დაზადვნა
@@ -478,6 +566,20 @@ export default function App() {
           </div>
         </div>
       )}
+          {people.length > 0 && (
+            <section className="versus-leaderboard" aria-label="ყლეობაიტის ლიდერბორდი">
+              <h3>ყლეობაიტი</h3>
+              <ol>
+                {sortedVersusPeople.map((person, index) => (
+                  <li key={person.id}>
+                    <span className="versus-rank">{index + 1}</span>
+                    <span className="versus-person-name">{person.name}</span>
+                    <strong>{person.versusPoints || 0}</strong>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
     </div>
   );
 }
