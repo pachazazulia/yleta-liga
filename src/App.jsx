@@ -524,6 +524,20 @@ export default function App() {
               </button>
             </div>
           )}
+          {people.length > 0 && (
+            <section className="versus-leaderboard" aria-label="ყლეობაიტის ლიდერბორდი">
+              <h3>ყლეობაიტი</h3>
+              <ol>
+                {sortedVersusPeople.map((person, index) => (
+                  <li key={person.id}>
+                    <span className="versus-rank">{index + 1}</span>
+                    <span className="versus-person-name">{person.name}</span>
+                    <strong>{person.versusPoints || 0}</strong>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
         </div>
       )}
 
@@ -566,20 +580,6 @@ export default function App() {
           </div>
         </div>
       )}
-          {people.length > 0 && (
-            <section className="versus-leaderboard" aria-label="ყლეობაიტის ლიდერბორდი">
-              <h3>ყლეობაიტი</h3>
-              <ol>
-                {sortedVersusPeople.map((person, index) => (
-                  <li key={person.id}>
-                    <span className="versus-rank">{index + 1}</span>
-                    <span className="versus-person-name">{person.name}</span>
-                    <strong>{person.versusPoints || 0}</strong>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
     </div>
   );
 }
