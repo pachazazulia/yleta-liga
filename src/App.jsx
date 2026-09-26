@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FaPlus,
   FaMinus,
@@ -25,6 +25,10 @@ const DUMMY_NAMES = new Set(['Ada Lovelace', 'Alan Turing', 'Grace Hopper', 'Nik
 const MAX_VOTES = 100;
 const MIN_VOTES = -100;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const LOCKED_SCORE_NAME = 'ბარნოვსკი';
+const LOCKED_SCORE = 100;
+
+const hasLockedScore = (person) => person.name?.trim() === LOCKED_SCORE_NAME;
 
 const resizeImage = (file) =>
   new Promise((resolve, reject) => {
@@ -110,10 +114,79 @@ const loadSavedPeople = () => {
     if (!saved) return [];
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((p) => !DUMMY_NAMES.has(p.name) && (typeof p.id === 'string' || p.id > 100));
+    return parsed
+      .filter((p) => !DUMMY_NAMES.has(p.name) && (typeof p.id === 'string' || p.id > 100))
+      .map((person) => hasLockedScore(person) ? { ...person, votes: LOCKED_SCORE } : person);
   } catch {
     return [];
   }
+};
+
+const getRosterKey = (pool) => pool.map((person) => String(person.id)).sort().join('|');
+
+const loadVersusState = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('versus_round_state') || 'null');
+    if (
+      saved &&
+      typeof saved.rosterKey === 'string' &&
+      Array.isArray(saved.remainingIds) &&
+      Array.isArray(saved.pairIds)
+    ) {
+      return saved;
+    }
+  } catch {
+    // Start a fresh round if the saved state is unreadable.
+  }
+  return { rosterKey: '', remainingIds: [], pairIds: [] };
+};
+
+const shuffle = (values) => {
+  const shuffled = [...values];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+  return shuffled;
+};
+
+const drawVersusPair = (pool, currentState) => {
+  const personIds = pool.map((person) => String(person.id));
+  const rosterKey = getRosterKey(pool);
+  if (personIds.length < 2) {
+    return { rosterKey, remainingIds: [], pairIds: [] };
+  }
+
+  const sameRoster = currentState.rosterKey === rosterKey;
+  let remainingIds = sameRoster
+    ? currentState.remainingIds.filter((id) => personIds.includes(id))
+    : shuffle(personIds);
+
+  if (remainingIds.length === 1) {
+    const lastId = remainingIds[0];
+    const opponents = personIds.filter((id) => id !== lastId);
+    const opponentId = opponents[Math.floor(Math.random() * opponents.length)];
+    return { rosterKey, remainingIds: [], pairIds: [lastId, opponentId] };
+  }
+
+  if (remainingIds.length < 2) remainingIds = shuffle(personIds);
+  const firstIndex = Math.floor(Math.random() * remainingIds.length);
+  const [firstId] = remainingIds.splice(firstIndex, 1);
+  const secondIndex = Math.floor(Math.random() * remainingIds.length);
+  const [secondId] = remainingIds.splice(secondIndex, 1);
+  return { rosterKey, remainingIds, pairIds: [firstId, secondId] };
+};
+
+const createInitialVersusState = () => {
+  const pool = loadSavedPeople();
+  const savedState = loadVersusState();
+  const rosterKey = getRosterKey(pool);
+  const hasValidPair = savedState.pairIds.length === 2 && savedState.pairIds.every(
+    (id) => pool.some((person) => String(person.id) === id)
+  );
+
+  if (savedState.rosterKey === rosterKey && (pool.length < 2 || hasValidPair)) return savedState;
+  return drawVersusPair(pool, { rosterKey: '', remainingIds: [], pairIds: [] });
 };
 
 export default function App() {
@@ -124,11 +197,8 @@ export default function App() {
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('');
   const [condomBurst, setCondomBurst] = useState(0);
-  const [versusPairIds, setVersusPairIds] = useState(() => {
-    const list = loadSavedPeople();
-    if (list.length >= 2) return [list[0].id, list[1].id];
-    return [];
-  });
+  const [versusState, setVersusState] = useState(createInitialVersusState);
+  const rosterKeyRef = useRef(getRosterKey(people));
 
   // Real-time Firebase Sync when configured
   useEffect(() => {
@@ -139,15 +209,20 @@ export default function App() {
       (snapshot) => {
         const cloudPeople = [];
         snapshot.forEach((docSnap) => {
-          cloudPeople.push({ id: docSnap.id, ...docSnap.data() });
+          const person = { id: docSnap.id, ...docSnap.data() };
+          if (hasLockedScore(person) && person.votes !== LOCKED_SCORE) {
+            updateDoc(doc(db, 'people', docSnap.id), { votes: LOCKED_SCORE }).catch((err) => {
+              console.error('Failed to enforce locked score:', err);
+            });
+          }
+          cloudPeople.push(hasLockedScore(person) ? { ...person, votes: LOCKED_SCORE } : person);
         });
+        const cloudRosterKey = getRosterKey(cloudPeople);
+        if (cloudRosterKey !== rosterKeyRef.current) {
+          rosterKeyRef.current = cloudRosterKey;
+          setVersusState(drawVersusPair(cloudPeople, { rosterKey: '', remainingIds: [], pairIds: [] }));
+        }
         setPeople(cloudPeople);
-        setVersusPairIds((prevPair) => {
-          const valid = prevPair.filter((id) => cloudPeople.some((p) => String(p.id) === String(id)));
-          if (valid.length === 2) return valid;
-          if (cloudPeople.length >= 2) return [cloudPeople[0].id, cloudPeople[1].id];
-          return [];
-        });
       },
       (error) => {
         console.error('Firebase real-time sync error:', error);
@@ -156,6 +231,10 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('versus_round_state', JSON.stringify(versusState));
+  }, [versusState]);
 
   // Save to localStorage as local cache / fallback
   useEffect(() => {
@@ -170,22 +249,14 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [condomBurst]);
 
-  // Pick 2 random people for Head-to-Head mode
+  // Draw the next pair from the current shuffled round.
   const pickVersusPair = (pool = people) => {
-    if (pool.length < 2) {
-      setVersusPairIds([]);
-      return;
-    }
-    const idx1 = Math.floor(Math.random() * pool.length);
-    let idx2 = Math.floor(Math.random() * pool.length);
-    while (idx2 === idx1) {
-      idx2 = Math.floor(Math.random() * pool.length);
-    }
-    setVersusPairIds([pool[idx1].id, pool[idx2].id]);
+    setVersusState((currentState) => drawVersusPair(pool, currentState));
   };
 
   const handleVote = async (id, delta) => {
     const person = people.find((candidate) => String(candidate.id) === String(id));
+    if (person && hasLockedScore(person)) return;
     const currentVotes = person?.votes || 0;
     const nextVotes = Math.min(MAX_VOTES, Math.max(MIN_VOTES, currentVotes + delta));
     const appliedDelta = nextVotes - currentVotes;
@@ -243,7 +314,7 @@ export default function App() {
     const nominee = {
       name: newName.trim(),
       role: newRole.trim() || '',
-      votes: 0,
+      votes: newName.trim() === LOCKED_SCORE_NAME ? LOCKED_SCORE : 0,
       createdAt: Date.now(),
     };
 
@@ -256,7 +327,10 @@ export default function App() {
       }
     } else {
       const newPerson = { id: Date.now(), ...nominee };
-      setPeople((prev) => [...prev, newPerson]);
+      const updatedPeople = [...people, newPerson];
+      setPeople(updatedPeople);
+      rosterKeyRef.current = getRosterKey(updatedPeople);
+      setVersusState(drawVersusPair(updatedPeople, { rosterKey: '', remainingIds: [], pairIds: [] }));
     }
 
     setNewName('');
@@ -285,7 +359,10 @@ export default function App() {
           alert('Firebase error: ' + err.message);
         }
       } else {
-        setPeople((prev) => prev.filter((p) => String(p.id) !== String(id)));
+        const updatedPeople = people.filter((person) => String(person.id) !== String(id));
+        setPeople(updatedPeople);
+        rosterKeyRef.current = getRosterKey(updatedPeople);
+        setVersusState(drawVersusPair(updatedPeople, { rosterKey: '', remainingIds: [], pairIds: [] }));
       }
     }
   };
@@ -300,7 +377,8 @@ export default function App() {
         }
       } else {
         setPeople([]);
-        setVersusPairIds([]);
+        rosterKeyRef.current = '';
+        setVersusState(drawVersusPair([], { rosterKey: '', remainingIds: [], pairIds: [] }));
         localStorage.removeItem('ranking_people');
       }
     }
@@ -318,7 +396,7 @@ export default function App() {
   const sortedVersusPeople = [...people].sort(
     (a, b) => (b.versusPoints || 0) - (a.versusPoints || 0)
   );
-  const versusPair = versusPairIds
+  const versusPair = versusState.pairIds
     .map((id) => people.find((p) => String(p.id) === String(id)))
     .filter(Boolean);
 
@@ -405,7 +483,7 @@ export default function App() {
           {!search && top3.length >= 3 && (
             <div className="podium-section">
               {top3.map((person, index) => (
-                <div key={person.id} className={`podium-card rank-${index + 1}`}>
+                <div key={person.id} className={`podium-card rank-${index + 1}${hasLockedScore(person) ? ' person-locked' : ''}`}>
                   <button
                     className="btn-podium-delete"
                     onClick={() => handleDeletePerson(person.id, person.name)}
@@ -424,7 +502,11 @@ export default function App() {
                       `#${index + 1}`
                     )}
                   </span>
-                  <PersonPicture className="avatar-large" person={person} onUpload={handlePictureUpload} />
+                  <PersonPicture
+                    className={`avatar-large${hasLockedScore(person) ? ' person-picture-locked' : ''}`}
+                    person={person}
+                    onUpload={handlePictureUpload}
+                  />
                   <h3 style={{ margin: '0.4rem 0 0.2rem' }}>{person.name}</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
                     {person.role}
@@ -440,10 +522,14 @@ export default function App() {
           {/* Full Ranked List */}
           <div className="leaderboard-list">
             {filteredPeople.map((person, index) => (
-              <div key={person.id} className="list-item">
+              <div key={person.id} className={`list-item${hasLockedScore(person) ? ' person-locked' : ''}`}>
                 <div className="list-item-left">
                   <span className="rank-num">#{index + 1}</span>
-                  <PersonPicture className="avatar-small" person={person} onUpload={handlePictureUpload} />
+                  <PersonPicture
+                    className={`avatar-small${hasLockedScore(person) ? ' person-picture-locked' : ''}`}
+                    person={person}
+                    onUpload={handlePictureUpload}
+                  />
                   <div className="person-info">
                     <h3>{person.name}</h3>
                     <p>{person.role}</p>
@@ -451,13 +537,17 @@ export default function App() {
                 </div>
 
                 <div className="vote-controls">
-                  <button className="btn-vote upvote" onClick={() => handleVote(person.id, 1)} title="Add vote">
-                    <FaPlus size={16} />
-                  </button>
-                  <span className="score">{person.votes || 0}</span>
-                  <button className="btn-vote downvote" onClick={() => handleVote(person.id, -1)} title="Remove vote">
-                    <FaMinus size={16} />
-                  </button>
+                  {!hasLockedScore(person) && (
+                    <>
+                      <button className="btn-vote upvote" onClick={() => handleVote(person.id, 1)} title="Add vote">
+                        <FaPlus size={16} />
+                      </button>
+                      <button className="btn-vote downvote" onClick={() => handleVote(person.id, -1)} title="Remove vote">
+                        <FaMinus size={16} />
+                      </button>
+                    </>
+                  )}
+                  <span className="score">{hasLockedScore(person) ? LOCKED_SCORE : person.votes || 0}</span>
                   <button
                     className="btn-vote delete"
                     onClick={() => handleDeletePerson(person.id, person.name)}
@@ -493,8 +583,12 @@ export default function App() {
 
           {versusPair.length === 2 ? (
             <div className="versus-container">
-              <div className="versus-card" onClick={() => handleVersusSelect(versusPair[0].id)}>
-                <PersonPicture className="avatar-large" person={versusPair[0]} onUpload={handlePictureUpload} />
+              <div className={`versus-card${hasLockedScore(versusPair[0]) ? ' person-locked' : ''}`} onClick={() => handleVersusSelect(versusPair[0].id)}>
+                <PersonPicture
+                  className={`avatar-large${hasLockedScore(versusPair[0]) ? ' person-picture-locked' : ''}`}
+                  person={versusPair[0]}
+                  onUpload={handlePictureUpload}
+                />
                 <h3>{versusPair[0].name}</h3>
                 <p style={{ color: 'var(--text-muted)' }}>{versusPair[0].role}</p>
                 <div style={{ marginTop: '1rem', fontWeight: 'bold' }}>
@@ -504,8 +598,12 @@ export default function App() {
 
               <div className="vs-badge">VS</div>
 
-              <div className="versus-card" onClick={() => handleVersusSelect(versusPair[1].id)}>
-                <PersonPicture className="avatar-large" person={versusPair[1]} onUpload={handlePictureUpload} />
+              <div className={`versus-card${hasLockedScore(versusPair[1]) ? ' person-locked' : ''}`} onClick={() => handleVersusSelect(versusPair[1].id)}>
+                <PersonPicture
+                  className={`avatar-large${hasLockedScore(versusPair[1]) ? ' person-picture-locked' : ''}`}
+                  person={versusPair[1]}
+                  onUpload={handlePictureUpload}
+                />
                 <h3>{versusPair[1].name}</h3>
                 <p style={{ color: 'var(--text-muted)' }}>{versusPair[1].role}</p>
                 <div style={{ marginTop: '1rem', fontWeight: 'bold' }}>

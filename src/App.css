@@ -7,6 +7,7 @@
   --text-muted: #94a3b8;
   --accent-blue: #3b82f6;
   --accent-purple: #8b5cf6;
+  --accent-pink: #ec4899;
   --border-color: #334155;
   --gold: #eab308;
   --silver: #94a3b8;
@@ -137,6 +138,12 @@ body {
 .podium-card.rank-2 { border-color: var(--silver); }
 .podium-card.rank-3 { border-color: var(--bronze); }
 
+.podium-card.person-locked,
+.list-item.person-locked,
+.versus-card.person-locked {
+  border-color: var(--accent-pink);
+}
+
 .avatar-large {
   width: 80px;
   height: 80px;
@@ -200,6 +207,11 @@ body {
   height: 44px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.person-picture-locked {
+  outline: 2px solid var(--accent-pink);
+  outline-offset: 2px;
 }
 
 .person-info h3 {
