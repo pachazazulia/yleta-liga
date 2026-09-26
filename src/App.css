@@ -439,6 +439,11 @@ body {
   color: var(--text-main);
 }
 
+.picture-preview-button {
+  appearance: none;
+  line-height: 0;
+}
+
 .picture-file-input {
   position: absolute;
   inset: 0;
@@ -504,6 +509,58 @@ body {
   background: rgba(15, 23, 42, 0.72);
   color: white;
   font-weight: bold;
+}
+
+.picture-modal-overlay {
+  z-index: 120;
+}
+
+.picture-modal-content {
+  display: flex;
+  width: min(900px, 100%);
+  max-height: calc(100vh - 2rem);
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+
+.picture-modal-content h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.picture-modal-image {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  max-height: calc(100vh - 10rem);
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.picture-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.btn-remove-picture {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.btn-remove-picture:hover {
+  border-color: var(--red);
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.picture-remove-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.85rem;
 }
 
 .condom-burst {
@@ -689,5 +746,18 @@ body {
   .modal-content {
     margin: auto 0;
     padding: 1.25rem;
+  }
+
+  .picture-modal-content {
+    max-height: calc(100vh - 1.5rem);
+    padding: 0.9rem;
+  }
+
+  .picture-modal-image {
+    max-height: calc(100vh - 9rem);
+  }
+
+  .picture-modal-actions {
+    flex-wrap: wrap;
   }
 }

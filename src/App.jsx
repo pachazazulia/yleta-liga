@@ -16,6 +16,7 @@ import {
   deleteDoc,
   doc,
   increment,
+  deleteField,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 import customIcon from './assets/trophy.png';
@@ -59,7 +60,7 @@ const resizeImage = (file) =>
     image.src = imageUrl;
   });
 
-function PersonPicture({ person, className, onUpload }) {
+function PersonPicture({ person, className, onUpload, onPreview }) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const hasPicture = person.avatar?.startsWith('data:image/');
@@ -80,10 +81,27 @@ function PersonPicture({ person, className, onUpload }) {
     }
   };
 
+  if (hasPicture) {
+    return (
+      <button
+        type="button"
+        className={`picture-uploader picture-preview-button ${className}`}
+        title="სურათის ნახვა"
+        aria-label={`${person.name}-ის სურათის ნახვა`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onPreview(person.id);
+        }}
+      >
+        <img className="picture-image" src={person.avatar} alt={person.name} />
+      </button>
+    );
+  }
+
   return (
     <label
       className={`picture-uploader ${className}`}
-      title={error || (hasPicture ? 'სურათის შეცვლა' : 'სურათის დამატება')}
+      title={error || 'სურათის დამატება'}
       onClick={(event) => event.stopPropagation()}
     >
       <input
@@ -94,15 +112,10 @@ function PersonPicture({ person, className, onUpload }) {
         disabled={isUploading}
         onChange={handleChange}
       />
-      {hasPicture ? (
-        <img className="picture-image" src={person.avatar} alt={person.name} />
-      ) : (
-        <span className="picture-placeholder">
-          <FaPlus />
-          <span>სურათი</span>
-        </span>
-      )}
-      {hasPicture && <span className="picture-add-badge"><FaPlus size={11} /></span>}
+      <span className="picture-placeholder">
+        <FaPlus />
+        <span>სურათი</span>
+      </span>
       {isUploading && <span className="picture-uploading">...</span>}
     </label>
   );
@@ -197,6 +210,9 @@ export default function App() {
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('');
   const [condomBurst, setCondomBurst] = useState(0);
+  const [picturePreviewId, setPicturePreviewId] = useState(null);
+  const [pictureRemoveError, setPictureRemoveError] = useState('');
+  const [isRemovingPicture, setIsRemovingPicture] = useState(false);
   const [versusState, setVersusState] = useState(createInitialVersusState);
   const rosterKeyRef = useRef(getRosterKey(people));
 
@@ -346,6 +362,28 @@ export default function App() {
 
     if (isFirebaseConfigured && db) {
       await updateDoc(doc(db, 'people', String(id)), { avatar });
+    }
+  };
+
+  const handlePictureRemove = async () => {
+    if (!picturePreviewId) return;
+    setIsRemovingPicture(true);
+    setPictureRemoveError('');
+    try {
+      if (isFirebaseConfigured && db) {
+        await updateDoc(doc(db, 'people', String(picturePreviewId)), { avatar: deleteField() });
+      }
+      setPeople((prev) => prev.map((person) => (
+        String(person.id) === String(picturePreviewId)
+          ? { ...person, avatar: '' }
+          : person
+      )));
+      setPicturePreviewId(null);
+    } catch (error) {
+      console.error('Picture removal failed:', error);
+      setPictureRemoveError('სურათის წაშლა ვერ მოხერხდა');
+    } finally {
+      setIsRemovingPicture(false);
     }
   };
 
@@ -506,6 +544,7 @@ export default function App() {
                     className={`avatar-large${hasLockedScore(person) ? ' person-picture-locked' : ''}`}
                     person={person}
                     onUpload={handlePictureUpload}
+                    onPreview={setPicturePreviewId}
                   />
                   <h3 style={{ margin: '0.4rem 0 0.2rem' }}>{person.name}</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
@@ -529,6 +568,7 @@ export default function App() {
                     className={`avatar-small${hasLockedScore(person) ? ' person-picture-locked' : ''}`}
                     person={person}
                     onUpload={handlePictureUpload}
+                    onPreview={setPicturePreviewId}
                   />
                   <div className="person-info">
                     <h3>{person.name}</h3>
@@ -588,6 +628,7 @@ export default function App() {
                   className={`avatar-large${hasLockedScore(versusPair[0]) ? ' person-picture-locked' : ''}`}
                   person={versusPair[0]}
                   onUpload={handlePictureUpload}
+                  onPreview={setPicturePreviewId}
                 />
                 <h3>{versusPair[0].name}</h3>
                 <p style={{ color: 'var(--text-muted)' }}>{versusPair[0].role}</p>
@@ -603,6 +644,7 @@ export default function App() {
                   className={`avatar-large${hasLockedScore(versusPair[1]) ? ' person-picture-locked' : ''}`}
                   person={versusPair[1]}
                   onUpload={handlePictureUpload}
+                  onPreview={setPicturePreviewId}
                 />
                 <h3>{versusPair[1].name}</h3>
                 <p style={{ color: 'var(--text-muted)' }}>{versusPair[1].role}</p>
@@ -678,6 +720,25 @@ export default function App() {
           </div>
         </div>
       )}
+      {picturePreviewId && (() => {
+        const person = people.find((candidate) => String(candidate.id) === String(picturePreviewId));
+        if (!person?.avatar?.startsWith('data:image/')) return null;
+        return (
+          <div className="modal-overlay picture-modal-overlay" onClick={() => setPicturePreviewId(null)}>
+            <div className="picture-modal-content" onClick={(event) => event.stopPropagation()}>
+              <h2>{person.name}</h2>
+              <img className="picture-modal-image" src={person.avatar} alt={person.name} />
+              {pictureRemoveError && <p className="picture-remove-error" role="alert">{pictureRemoveError}</p>}
+              <div className="picture-modal-actions">
+                <button className="btn" onClick={() => setPicturePreviewId(null)}>დახურვა</button>
+                <button className="btn btn-remove-picture" onClick={handlePictureRemove} disabled={isRemovingPicture}>
+                  <FaTrash size={14} /> {isRemovingPicture ? 'იშლება...' : 'სურათის წაშლა'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
