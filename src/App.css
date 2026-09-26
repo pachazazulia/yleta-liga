@@ -27,9 +27,21 @@ body {
 }
 
 .app-container {
+  display: flex;
+  min-height: 100vh;
+  box-sizing: border-box;
+  flex-direction: column;
   max-width: 1000px;
   margin: 0 auto;
   padding: 2rem 1rem;
+}
+
+.app-footer {
+  margin-top: auto;
+  padding-top: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
 }
 
 /* --- Header --- */

@@ -797,6 +797,7 @@ export default function App() {
           </div>
         );
       })()}
+      <footer className="app-footer">© {new Date().getFullYear()} Pacha Zazulia</footer>
     </div>
   );
 }
