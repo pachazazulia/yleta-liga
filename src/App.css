@@ -49,6 +49,80 @@ body {
   margin: 3rem auto 0;
 }
 
+.barno-broadcast-kicker {
+  color: #f9a8d4;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.modal-overlay.credit-quiz-overlay {
+  z-index: 300;
+}
+
+.credit-quiz-content {
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  border-color: var(--accent-pink);
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.14);
+}
+
+.credit-quiz-content h2 {
+  margin: 0.4rem 0 1.25rem;
+  font-size: 1.2rem;
+}
+
+.btn-credit-scene {
+  border-color: var(--accent-pink);
+  color: #f9a8d4;
+}
+
+.btn-credit-scene:hover {
+  border-color: var(--accent-pink);
+  background: rgba(236, 72, 153, 0.15);
+}
+
+.credit-quiz-error {
+  margin: 0 0 1rem;
+  color: #fda4af;
+  font-size: 0.9rem;
+}
+
+.credit-quiz-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.credit-scene-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.credit-scene-overlay.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.credit-scene-video {
+  display: block;
+  width: min(100vw, 58vh);
+  max-width: 100vw;
+  max-height: 100vh;
+  aspect-ratio: 0.58;
+  background: #000;
+  object-fit: fill;
+  pointer-events: none;
+}
+
 .barnovski-slideshow-heading,
 .barnovski-slideshow-controls {
   display: flex;

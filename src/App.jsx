@@ -40,6 +40,20 @@ const BARNOVSKI_PHOTOS = [
   '/barnovski-04.jpg',
   '/barnovski-05.jpg',
 ];
+const CREDIT_SCENE_QUESTIONS = [
+  { question: 'რომელია ყველაზე ძერსკი უბანი ისეთ პონტში?', answer: 'ვაკე' },
+  { question: 'რა დაითრია', answer: 'წყალი' },
+  { question: 'რამდენად იქირავებ ბინას ვაკეში?', answer: '400' },
+];
+const CREDIT_SCENE_UNLOCK_KEY = 'barnovski_credit_scene_unlocked';
+
+const loadCreditSceneUnlocked = () => {
+  try {
+    return localStorage.getItem(CREDIT_SCENE_UNLOCK_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
 
 const hasLockedScore = (person) => person.name?.trim() === LOCKED_SCORE_NAME;
 
@@ -228,8 +242,14 @@ export default function App() {
   const [isRemovingPicture, setIsRemovingPicture] = useState(false);
   const [slideshow, setSlideshow] = useState({ current: 0, previous: null });
   const [isSlideshowPlaying, setIsSlideshowPlaying] = useState(true);
+  const [isCreditQuizOpen, setIsCreditQuizOpen] = useState(false);
+  const [creditQuizAnswers, setCreditQuizAnswers] = useState(['', '', '']);
+  const [creditQuizError, setCreditQuizError] = useState('');
+  const [isCreditSceneUnlocked, setIsCreditSceneUnlocked] = useState(loadCreditSceneUnlocked);
+  const [isCreditVideoActive, setIsCreditVideoActive] = useState(false);
   const [versusState, setVersusState] = useState(createInitialVersusState);
   const rosterKeyRef = useRef(getRosterKey(people));
+  const creditVideoRef = useRef(null);
 
   const goToSlide = (nextIndex) => {
     setSlideshow((current) => current.current === nextIndex
@@ -247,6 +267,21 @@ export default function App() {
     }, 5000);
     return () => window.clearInterval(interval);
   }, [isSlideshowPlaying]);
+
+  useEffect(() => {
+    if (!isCreditVideoActive) return undefined;
+    const blockPlaybackHotkeys = (event) => {
+      if (
+        event.code === 'Space' ||
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'MediaPlayPause', 'MediaStop'].includes(event.key)
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener('keydown', blockPlaybackHotkeys, true);
+    return () => document.removeEventListener('keydown', blockPlaybackHotkeys, true);
+  }, [isCreditVideoActive]);
 
   // Real-time Firebase Sync when configured
   useEffect(() => {
@@ -393,6 +428,34 @@ export default function App() {
     setIsModalOpen(true);
   };
 
+  const handleCreditQuizSubmit = (event) => {
+    event.preventDefault();
+    const allAnswersCorrect = CREDIT_SCENE_QUESTIONS.every(({ answer }, index) => (
+      creditQuizAnswers[index].trim().toLocaleLowerCase() === answer.toLocaleLowerCase()
+    ));
+    if (!allAnswersCorrect) {
+      setCreditQuizError('ერთი პასუხი მაინც არასწორია. კიდევ სცადე.');
+      return;
+    }
+
+    setCreditQuizError('');
+    setIsCreditSceneUnlocked(true);
+    try {
+      localStorage.setItem(CREDIT_SCENE_UNLOCK_KEY, 'true');
+    } catch {
+      // Keep the unlock for this app session if storage is unavailable.
+    }
+    startCreditScene();
+  };
+
+  const finishCreditVideo = () => {
+    const video = creditVideoRef.current;
+    video?.pause();
+    if (video) video.currentTime = 0;
+    setIsCreditVideoActive(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  };
+
   const handleUpdatePerson = async (e) => {
     e.preventDefault();
     if (!newName.trim()) return;
@@ -432,6 +495,29 @@ export default function App() {
     setEditingPersonId(null);
     setNewName('');
     setNewRole('');
+    setIsCreditQuizOpen(false);
+    setCreditQuizAnswers(['', '', '']);
+    setCreditQuizError('');
+  };
+
+  const startCreditScene = () => {
+    const video = creditVideoRef.current;
+    if (!video) return;
+
+    setIsCreditQuizOpen(false);
+    closePersonForm();
+    setPicturePreviewId(null);
+    video.volume = 1;
+    video.muted = false;
+    video.currentTime = 0;
+    const fullscreenRequest = document.documentElement.requestFullscreen?.();
+    fullscreenRequest?.catch(() => {});
+    setIsCreditVideoActive(true);
+    video.play().catch((error) => {
+      if (error.name === 'AbortError') return;
+      console.error('Credit scene playback failed:', error);
+      setIsCreditVideoActive(false);
+    });
   };
 
   const handlePictureUpload = async (id, file) => {
@@ -808,6 +894,37 @@ export default function App() {
           </div>
         </div>
       )}
+      {isCreditQuizOpen && (
+        <div className="modal-overlay credit-quiz-overlay" onClick={() => setIsCreditQuizOpen(false)}>
+          <div className="modal-content credit-quiz-content" onClick={(event) => event.stopPropagation()}>
+            <span className="barno-broadcast-kicker">BARNO-VISION / FINAL TEST</span>
+            <h2>კრედიტ სცენის გასახსნელად...</h2>
+            <form onSubmit={handleCreditQuizSubmit}>
+              {CREDIT_SCENE_QUESTIONS.map(({ question }, index) => (
+                <div className="form-group" key={question}>
+                  <label htmlFor={`credit-answer-${index}`}>{index + 1}. {question}</label>
+                  <input
+                    id={`credit-answer-${index}`}
+                    className="form-input"
+                    type="text"
+                    autoComplete="off"
+                    required
+                    value={creditQuizAnswers[index]}
+                    onChange={(event) => setCreditQuizAnswers((answers) => answers.map((answer, answerIndex) => (
+                      answerIndex === index ? event.target.value : answer
+                    )))}
+                  />
+                </div>
+              ))}
+              {creditQuizError && <p className="credit-quiz-error" role="alert">{creditQuizError}</p>}
+              <div className="credit-quiz-actions">
+                <button type="button" className="btn" onClick={() => setIsCreditQuizOpen(false)}>უკან</button>
+                <button type="submit" className="btn btn-primary">გახსენი სცენა</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {picturePreviewId && (() => {
         const person = people.find((candidate) => String(candidate.id) === String(picturePreviewId));
         if (!person?.avatar?.startsWith('data:image/')) return null;
@@ -818,6 +935,22 @@ export default function App() {
               <img className="picture-modal-image" src={person.avatar} alt={person.name} />
               {pictureRemoveError && <p className="picture-remove-error" role="alert">{pictureRemoveError}</p>}
               <div className="picture-modal-actions">
+                {hasLockedScore(person) && (
+                  <button
+                    className="btn btn-credit-scene"
+                    onClick={() => {
+                      if (isCreditSceneUnlocked) {
+                        startCreditScene();
+                        return;
+                      }
+                      setCreditQuizAnswers(['', '', '']);
+                      setCreditQuizError('');
+                      setIsCreditQuizOpen(true);
+                    }}
+                  >
+                    <FaPlay size={14} /> კრედიტ სცენა
+                  </button>
+                )}
                 <button className="btn" onClick={() => setPicturePreviewId(null)}>დახურვა</button>
                 <button className="btn btn-remove-picture" onClick={handlePictureRemove} disabled={isRemovingPicture}>
                   <FaTrash size={14} /> {isRemovingPicture ? 'იშლება...' : 'სურათის წაშლა'}
@@ -827,6 +960,24 @@ export default function App() {
           </div>
         );
       })()}
+      <div className={`credit-scene-overlay${isCreditVideoActive ? ' is-active' : ''}`} aria-hidden={!isCreditVideoActive}>
+        <video
+          ref={creditVideoRef}
+          className="credit-scene-video"
+          controls={false}
+          disablePictureInPicture
+          disableRemotePlayback
+          playsInline
+          preload="auto"
+          poster="/barnovski-01.jpg"
+          tabIndex={-1}
+          onContextMenu={(event) => event.preventDefault()}
+          onEnded={finishCreditVideo}
+          onError={finishCreditVideo}
+        >
+          <source src="/barnovski.mp4" type="video/mp4" />
+        </video>
+      </div>
       <section className="barnovski-slideshow" aria-label="ბარნოვსკის სლაიდშოუ">
         <div className="barnovski-slideshow-heading">
           <h2>ბარნოვსკი</h2>
