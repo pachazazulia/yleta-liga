@@ -8,6 +8,10 @@ import {
   FaRedo,
   FaTrash,
   FaEdit,
+  FaChevronLeft,
+  FaChevronRight,
+  FaPause,
+  FaPlay,
 } from 'react-icons/fa';
 import {
   collection,
@@ -29,6 +33,13 @@ const MIN_VOTES = -100;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const LOCKED_SCORE_NAME = 'ბარნოვსკი';
 const LOCKED_SCORE = 100;
+const BARNOVSKI_PHOTOS = [
+  '/barnovski-01.jpg',
+  '/barnovski-02.jpg',
+  '/barnovski-03.jpg',
+  '/barnovski-04.jpg',
+  '/barnovski-05.jpg',
+];
 
 const hasLockedScore = (person) => person.name?.trim() === LOCKED_SCORE_NAME;
 
@@ -215,8 +226,18 @@ export default function App() {
   const [picturePreviewId, setPicturePreviewId] = useState(null);
   const [pictureRemoveError, setPictureRemoveError] = useState('');
   const [isRemovingPicture, setIsRemovingPicture] = useState(false);
+  const [slideshowIndex, setSlideshowIndex] = useState(0);
+  const [isSlideshowPlaying, setIsSlideshowPlaying] = useState(true);
   const [versusState, setVersusState] = useState(createInitialVersusState);
   const rosterKeyRef = useRef(getRosterKey(people));
+
+  useEffect(() => {
+    if (!isSlideshowPlaying) return undefined;
+    const interval = window.setInterval(() => {
+      setSlideshowIndex((index) => (index + 1) % BARNOVSKI_PHOTOS.length);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [isSlideshowPlaying]);
 
   // Real-time Firebase Sync when configured
   useEffect(() => {
@@ -797,6 +818,57 @@ export default function App() {
           </div>
         );
       })()}
+      <section className="barnovski-slideshow" aria-label="ბარნოვსკის სლაიდშოუ">
+        <div className="barnovski-slideshow-heading">
+          <h2>ბარნოვსკი</h2>
+          <span>{String(slideshowIndex + 1).padStart(2, '0')} / {String(BARNOVSKI_PHOTOS.length).padStart(2, '0')}</span>
+        </div>
+        <div className="barnovski-slideshow-frame">
+          <img
+            key={BARNOVSKI_PHOTOS[slideshowIndex]}
+            src={BARNOVSKI_PHOTOS[slideshowIndex]}
+            alt={`ბარნოვსკი, ფოტო ${slideshowIndex + 1}`}
+          />
+          <button
+            className="barnovski-slide-arrow barnovski-slide-previous"
+            type="button"
+            aria-label="წინა ფოტო"
+            onClick={() => setSlideshowIndex((index) => (index - 1 + BARNOVSKI_PHOTOS.length) % BARNOVSKI_PHOTOS.length)}
+          >
+            <FaChevronLeft />
+          </button>
+          <button
+            className="barnovski-slide-arrow barnovski-slide-next"
+            type="button"
+            aria-label="შემდეგი ფოტო"
+            onClick={() => setSlideshowIndex((index) => (index + 1) % BARNOVSKI_PHOTOS.length)}
+          >
+            <FaChevronRight />
+          </button>
+        </div>
+        <div className="barnovski-slideshow-controls">
+          <button
+            className="barnovski-slide-toggle"
+            type="button"
+            aria-label={isSlideshowPlaying ? 'სლაიდშოუს შეჩერება' : 'სლაიდშოუს გაგრძელება'}
+            onClick={() => setIsSlideshowPlaying((playing) => !playing)}
+          >
+            {isSlideshowPlaying ? <FaPause /> : <FaPlay />}
+          </button>
+          <div className="barnovski-slide-dots" aria-label="აირჩიე ფოტო">
+            {BARNOVSKI_PHOTOS.map((photo, index) => (
+              <button
+                key={photo}
+                className={`barnovski-slide-dot${index === slideshowIndex ? ' is-active' : ''}`}
+                type="button"
+                aria-label={`ფოტო ${index + 1}`}
+                aria-current={index === slideshowIndex ? 'true' : undefined}
+                onClick={() => setSlideshowIndex(index)}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
       <footer className="app-footer">© {new Date().getFullYear()} Pacha Zazulia</footer>
     </div>
   );

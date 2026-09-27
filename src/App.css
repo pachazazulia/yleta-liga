@@ -44,6 +44,139 @@ body {
   text-align: center;
 }
 
+.barnovski-slideshow {
+  width: min(100%, 880px);
+  margin: 3rem auto 0;
+}
+
+.barnovski-slideshow-heading,
+.barnovski-slideshow-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.barnovski-slideshow-heading {
+  margin-bottom: 0.75rem;
+}
+
+.barnovski-slideshow-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.barnovski-slideshow-heading span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.barnovski-slideshow-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.barnovski-slideshow-frame img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(70vh, 700px);
+  object-fit: contain;
+  animation: barnovski-slide-in 0.35s ease both;
+}
+
+.barnovski-slide-arrow,
+.barnovski-slide-toggle {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.78);
+  color: white;
+  cursor: pointer;
+}
+
+.barnovski-slide-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.barnovski-slide-arrow:hover,
+.barnovski-slide-toggle:hover {
+  background: var(--accent-pink);
+}
+
+.barnovski-slide-previous {
+  left: 0.75rem;
+}
+
+.barnovski-slide-next {
+  right: 0.75rem;
+}
+
+.barnovski-slideshow-controls {
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 0.75rem;
+}
+
+.barnovski-slide-toggle {
+  width: 34px;
+  height: 34px;
+}
+
+.barnovski-slide-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.barnovski-slide-dot {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.barnovski-slide-dot::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  content: '';
+}
+
+.barnovski-slide-dot.is-active::before {
+  width: 10px;
+  height: 10px;
+  background: var(--accent-pink);
+}
+
+.barnovski-slide-arrow:focus-visible,
+.barnovski-slide-toggle:focus-visible,
+.barnovski-slide-dot:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}
+
+@keyframes barnovski-slide-in {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
 /* --- Header --- */
 .header {
   display: flex;
