@@ -226,15 +226,24 @@ export default function App() {
   const [picturePreviewId, setPicturePreviewId] = useState(null);
   const [pictureRemoveError, setPictureRemoveError] = useState('');
   const [isRemovingPicture, setIsRemovingPicture] = useState(false);
-  const [slideshowIndex, setSlideshowIndex] = useState(0);
+  const [slideshow, setSlideshow] = useState({ current: 0, previous: null });
   const [isSlideshowPlaying, setIsSlideshowPlaying] = useState(true);
   const [versusState, setVersusState] = useState(createInitialVersusState);
   const rosterKeyRef = useRef(getRosterKey(people));
 
+  const goToSlide = (nextIndex) => {
+    setSlideshow((current) => current.current === nextIndex
+      ? current
+      : { current: nextIndex, previous: current.current });
+  };
+
   useEffect(() => {
     if (!isSlideshowPlaying) return undefined;
     const interval = window.setInterval(() => {
-      setSlideshowIndex((index) => (index + 1) % BARNOVSKI_PHOTOS.length);
+      setSlideshow((current) => ({
+        current: (current.current + 1) % BARNOVSKI_PHOTOS.length,
+        previous: current.current,
+      }));
     }, 5000);
     return () => window.clearInterval(interval);
   }, [isSlideshowPlaying]);
@@ -821,19 +830,29 @@ export default function App() {
       <section className="barnovski-slideshow" aria-label="ბარნოვსკის სლაიდშოუ">
         <div className="barnovski-slideshow-heading">
           <h2>ბარნოვსკი</h2>
-          <span>{String(slideshowIndex + 1).padStart(2, '0')} / {String(BARNOVSKI_PHOTOS.length).padStart(2, '0')}</span>
+          <span>{String(slideshow.current + 1).padStart(2, '0')} / {String(BARNOVSKI_PHOTOS.length).padStart(2, '0')}</span>
         </div>
         <div className="barnovski-slideshow-frame">
+          {slideshow.previous !== null && (
+            <img
+              key={`previous-${BARNOVSKI_PHOTOS[slideshow.previous]}`}
+              className="barnovski-slide-outgoing"
+              src={BARNOVSKI_PHOTOS[slideshow.previous]}
+              alt=""
+              aria-hidden="true"
+            />
+          )}
           <img
-            key={BARNOVSKI_PHOTOS[slideshowIndex]}
-            src={BARNOVSKI_PHOTOS[slideshowIndex]}
-            alt={`ბარნოვსკი, ფოტო ${slideshowIndex + 1}`}
+            key={`current-${BARNOVSKI_PHOTOS[slideshow.current]}`}
+            className="barnovski-slide-current"
+            src={BARNOVSKI_PHOTOS[slideshow.current]}
+            alt={`ბარნოვსკი, ფოტო ${slideshow.current + 1}`}
           />
           <button
             className="barnovski-slide-arrow barnovski-slide-previous"
             type="button"
             aria-label="წინა ფოტო"
-            onClick={() => setSlideshowIndex((index) => (index - 1 + BARNOVSKI_PHOTOS.length) % BARNOVSKI_PHOTOS.length)}
+            onClick={() => goToSlide((slideshow.current - 1 + BARNOVSKI_PHOTOS.length) % BARNOVSKI_PHOTOS.length)}
           >
             <FaChevronLeft />
           </button>
@@ -841,7 +860,7 @@ export default function App() {
             className="barnovski-slide-arrow barnovski-slide-next"
             type="button"
             aria-label="შემდეგი ფოტო"
-            onClick={() => setSlideshowIndex((index) => (index + 1) % BARNOVSKI_PHOTOS.length)}
+            onClick={() => goToSlide((slideshow.current + 1) % BARNOVSKI_PHOTOS.length)}
           >
             <FaChevronRight />
           </button>
@@ -859,11 +878,11 @@ export default function App() {
             {BARNOVSKI_PHOTOS.map((photo, index) => (
               <button
                 key={photo}
-                className={`barnovski-slide-dot${index === slideshowIndex ? ' is-active' : ''}`}
+                className={`barnovski-slide-dot${index === slideshow.current ? ' is-active' : ''}`}
                 type="button"
                 aria-label={`ფოტო ${index + 1}`}
-                aria-current={index === slideshowIndex ? 'true' : undefined}
-                onClick={() => setSlideshowIndex(index)}
+                aria-current={index === slideshow.current ? 'true' : undefined}
+                onClick={() => goToSlide(index)}
               />
             ))}
           </div>
