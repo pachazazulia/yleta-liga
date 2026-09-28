@@ -256,7 +256,6 @@ export default function App() {
   const [creditQuizError, setCreditQuizError] = useState('');
   const [isCreditSceneUnlocked, setIsCreditSceneUnlocked] = useState(loadCreditSceneUnlocked);
   const [isCreditVideoActive, setIsCreditVideoActive] = useState(false);
-  const [creditSceneVideoSource, setCreditSceneVideoSource] = useState(CREDIT_SCENE_VIDEO_SOURCES[LOCKED_SCORE_NAME]);
   const [versusState, setVersusState] = useState(createInitialVersusState);
   const rosterKeyRef = useRef(getRosterKey(people));
   const creditVideoRef = useRef(null);
@@ -517,13 +516,12 @@ export default function App() {
     setIsCreditQuizOpen(false);
     closePersonForm();
     setPicturePreviewId(null);
-    setCreditSceneVideoSource(videoSource);
     video.src = videoSource;
     video.load();
     video.volume = 1;
     video.muted = false;
     video.currentTime = 0;
-    const fullscreenRequest = document.documentElement.requestFullscreen?.();
+    const fullscreenRequest = video.requestFullscreen?.() ?? document.documentElement.requestFullscreen?.();
     fullscreenRequest?.catch(() => {});
     setIsCreditVideoActive(true);
     video.play().catch((error) => {
@@ -984,11 +982,11 @@ export default function App() {
           playsInline
           preload="auto"
           poster="/barnovski-01.jpg"
+          src={CREDIT_SCENE_VIDEO_SOURCES[LOCKED_SCORE_NAME]}
           tabIndex={-1}
           onContextMenu={(event) => event.preventDefault()}
           onEnded={finishCreditVideo}
           onError={finishCreditVideo}
-          src={creditSceneVideoSource}
         >
         </video>
       </div>

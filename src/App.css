@@ -123,6 +123,14 @@ body {
   pointer-events: none;
 }
 
+.credit-scene-video:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
 @media (max-width: 600px) {
   .credit-scene-video {
     width: 100vw;
