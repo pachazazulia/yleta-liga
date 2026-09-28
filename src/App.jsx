@@ -46,6 +46,12 @@ const CREDIT_SCENE_QUESTIONS = [
   { question: 'რამდენად იქირავებ ბინას ვაკეში?', answer: '400' },
 ];
 const CREDIT_SCENE_UNLOCK_KEY = 'barnovski_credit_scene_unlocked';
+const DIRECT_CREDIT_SCENE_NAMES = new Set(['ძონძროყექსა', 'ბოზიშვილა']);
+const CREDIT_SCENE_VIDEO_SOURCES = {
+  'ბარნოვსკი': '/barnovski.mp4',
+  'ძონძროყექსა': '/ძონძროყექსა.mp4',
+  'ბოზიშვილა': '/ბოზიშვილა.mp4',
+};
 
 const loadCreditSceneUnlocked = () => {
   try {
@@ -56,6 +62,9 @@ const loadCreditSceneUnlocked = () => {
 };
 
 const hasLockedScore = (person) => person.name?.trim() === LOCKED_SCORE_NAME;
+const hasCreditScene = (person) => (
+  hasLockedScore(person) || DIRECT_CREDIT_SCENE_NAMES.has(person.name?.trim())
+);
 
 const resizeImage = (file) =>
   new Promise((resolve, reject) => {
@@ -247,6 +256,7 @@ export default function App() {
   const [creditQuizError, setCreditQuizError] = useState('');
   const [isCreditSceneUnlocked, setIsCreditSceneUnlocked] = useState(loadCreditSceneUnlocked);
   const [isCreditVideoActive, setIsCreditVideoActive] = useState(false);
+  const [creditSceneVideoSource, setCreditSceneVideoSource] = useState(CREDIT_SCENE_VIDEO_SOURCES[LOCKED_SCORE_NAME]);
   const [versusState, setVersusState] = useState(createInitialVersusState);
   const rosterKeyRef = useRef(getRosterKey(people));
   const creditVideoRef = useRef(null);
@@ -500,13 +510,16 @@ export default function App() {
     setCreditQuizError('');
   };
 
-  const startCreditScene = () => {
+  const startCreditScene = (videoSource = CREDIT_SCENE_VIDEO_SOURCES[LOCKED_SCORE_NAME]) => {
     const video = creditVideoRef.current;
     if (!video) return;
 
     setIsCreditQuizOpen(false);
     closePersonForm();
     setPicturePreviewId(null);
+    setCreditSceneVideoSource(videoSource);
+    video.src = videoSource;
+    video.load();
     video.volume = 1;
     video.muted = false;
     video.currentTime = 0;
@@ -935,12 +948,13 @@ export default function App() {
               <img className="picture-modal-image" src={person.avatar} alt={person.name} />
               {pictureRemoveError && <p className="picture-remove-error" role="alert">{pictureRemoveError}</p>}
               <div className="picture-modal-actions">
-                {hasLockedScore(person) && (
+                {hasCreditScene(person) && (
                   <button
                     className="btn btn-credit-scene"
                     onClick={() => {
-                      if (isCreditSceneUnlocked) {
-                        startCreditScene();
+                      const videoSource = CREDIT_SCENE_VIDEO_SOURCES[person.name.trim()];
+                      if (!hasLockedScore(person) || isCreditSceneUnlocked) {
+                        startCreditScene(videoSource);
                         return;
                       }
                       setCreditQuizAnswers(['', '', '']);
@@ -974,8 +988,8 @@ export default function App() {
           onContextMenu={(event) => event.preventDefault()}
           onEnded={finishCreditVideo}
           onError={finishCreditVideo}
+          src={creditSceneVideoSource}
         >
-          <source src="/barnovski.mp4" type="video/mp4" />
         </video>
       </div>
       <section className="barnovski-slideshow" aria-label="ბარნოვსკის სლაიდშოუ">
