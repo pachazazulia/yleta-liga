@@ -46,7 +46,7 @@ const CREDIT_SCENE_QUESTIONS = [
   { question: 'რამდენად იქირავებ ბინას ვაკეში?', answer: '400' },
 ];
 const CREDIT_SCENE_UNLOCK_KEY = 'barnovski_credit_scene_unlocked';
-const DIRECT_CREDIT_SCENE_NAMES = new Set(['ძონძროყექსა', 'ბოზიშვილა']);
+const DIRECT_CREDIT_SCENE_NAMES = new Set(['ბარნოვსკი', 'ძონძროყექსა', 'ბოზიშვილა']);
 const CREDIT_SCENE_VIDEO_SOURCES = {
   'ბარნოვსკი': '/barnovski.mp4',
   'ძონძროყექსა': '/ძონძროყექსა.mp4',
@@ -951,7 +951,8 @@ export default function App() {
                     className="btn btn-credit-scene"
                     onClick={() => {
                       const videoSource = CREDIT_SCENE_VIDEO_SOURCES[person.name.trim()];
-                      if (!hasLockedScore(person) || isCreditSceneUnlocked) {
+                      const isDirectCreditScene = DIRECT_CREDIT_SCENE_NAMES.has(person.name.trim());
+                      if (!hasLockedScore(person) || isDirectCreditScene || isCreditSceneUnlocked) {
                         startCreditScene(videoSource);
                         return;
                       }
