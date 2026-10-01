@@ -36,6 +36,50 @@ body {
   padding: 2rem 1rem;
 }
 
+.password-gate {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.password-gate-form {
+  width: min(100%, 340px);
+  padding: 2rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.password-gate-form h1 {
+  margin: 0 0 1.5rem;
+  text-align: center;
+}
+
+.password-gate-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.password-gate-form .form-input {
+  font-size: 1rem;
+}
+
+.password-gate-error {
+  margin: 0.5rem 0 0;
+  color: var(--red);
+  font-size: 0.9rem;
+}
+
+.password-gate-submit {
+  justify-content: center;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.7rem 1rem;
+}
+
 .app-footer {
   margin-top: auto;
   padding-top: 1.5rem;

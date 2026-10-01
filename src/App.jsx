@@ -52,6 +52,8 @@ const CREDIT_SCENE_VIDEO_SOURCES = {
   'ძონძროყექსა': '/ძონძროყექსა.mp4',
   'ბოზიშვილა': '/ბოზიშვილა.mp4',
 };
+const PAGE_PASSWORD = 'ბადრიე';
+const PAGE_UNLOCK_KEY = 'ranking_page_unlocked';
 
 const loadCreditSceneUnlocked = () => {
   try {
@@ -238,6 +240,62 @@ const createInitialVersusState = () => {
 };
 
 export default function App() {
+  const [isUnlocked, setIsUnlocked] = useState(() => {
+    try {
+      return sessionStorage.getItem(PAGE_UNLOCK_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+
+  const handlePasswordSubmit = (event) => {
+    event.preventDefault();
+    if (password !== PAGE_PASSWORD) {
+      setPasswordError(true);
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(PAGE_UNLOCK_KEY, 'true');
+    } catch {
+      // Keep the page accessible for this visit if session storage is unavailable.
+    }
+    setIsUnlocked(true);
+  };
+
+  if (!isUnlocked) {
+    return (
+      <main className="password-gate">
+        <form className="password-gate-form" onSubmit={handlePasswordSubmit}>
+          <h1>ყლეთა ლიგა</h1>
+          <label htmlFor="page-password">პაროლი</label>
+          <input
+            id="page-password"
+            className="form-input"
+            type="password"
+            autoComplete="current-password"
+            autoFocus
+            value={password}
+            aria-invalid={passwordError}
+            aria-describedby={passwordError ? 'password-error' : undefined}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              setPasswordError(false);
+            }}
+          />
+          {passwordError && <p id="password-error" className="password-gate-error" role="alert">პაროლი არასწორია</p>}
+          <button className="btn btn-primary password-gate-submit" type="submit">შესვლა</button>
+        </form>
+      </main>
+    );
+  }
+
+  return <RankingPage />;
+}
+
+function RankingPage() {
   const [people, setPeople] = useState(loadSavedPeople);
   const [activeTab, setActiveTab] = useState('leaderboard'); // 'leaderboard' | 'versus'
   const [search, setSearch] = useState('');
